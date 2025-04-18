@@ -54,5 +54,8 @@ To create migration use below command
 
 Please check the rabbitMQ server is start or not if not start then start rabbitMQ server
 
+commnd to build the project
+npm run build
+
 run the below command to start servies
 npm run start:dev 
