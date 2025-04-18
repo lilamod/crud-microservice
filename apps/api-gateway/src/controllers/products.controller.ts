@@ -11,8 +11,11 @@ import {
   Patch,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { firstValueFrom } from 'rxjs';
+import { ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { firstValueFrom, lastValueFrom } from 'rxjs';
 
+@ApiTags('Products')
+@ApiSecurity('x-access-token')
 @Controller('products')
 export class ProductsController {
   constructor(
@@ -34,12 +37,12 @@ export class ProductsController {
     return this.sendMessage('get_product', { id });
   }
 
-  @Patch(':id')
+  @Patch(':id/stock')
   async updateProduct(
     @Param('id') id: string,
     @Body() productDto: CreateProductDto,
   ) {
-    return this.sendMessage('update_product', { id, ...productDto });
+    return this.sendMessage('update_product', { id, productDto });
   }
 
   @Delete(':id')
@@ -47,12 +50,18 @@ export class ProductsController {
     return this.sendMessage('delete_product', { id });
   }
 
-  private async sendMessage(pattern: string, data: any) {
-    try {
-      return await firstValueFrom(this.client.send({ cmd: pattern }, data));
-    } catch (error) {
-      // Handle error appropriately
-      throw new Error(`Error sending message to ${pattern}: ${error.message}`);
+  private async sendMessage(pattern: string, data: any, retries: number = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const result = await lastValueFrom(this.client.send({ cmd: pattern }, data));
+        return result;
+      } catch (err) {
+        if (attempt === retries - 1) {
+          throw err; 
+        }
+        const delay = Math.pow(2, attempt) * 100;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
   }
 }

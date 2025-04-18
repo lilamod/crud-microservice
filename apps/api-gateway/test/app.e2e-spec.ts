@@ -1,8 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { CanActivate, ExecutionContext, INestApplication, Injectable } from '@nestjs/common';
 import * as request from 'supertest';
 import { ApiGatewayModule } from './../src/api-gateway.module';
 import { Transport } from '@nestjs/microservices';
+import { APP_GUARD } from '@nestjs/core';
+
+@Injectable()
+class MockAuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    return true;
+  }
+}
 
 describe('ApiGatewayController (e2e)', () => {
   let app: INestApplication;
@@ -10,7 +18,10 @@ describe('ApiGatewayController (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [ApiGatewayModule],
-    }).compile();
+    })
+      .overrideProvider(APP_GUARD)
+      .useClass(MockAuthGuard)
+      .compile();
 
     app = moduleFixture.createNestApplication();
 
@@ -31,7 +42,7 @@ describe('ApiGatewayController (e2e)', () => {
 
   afterAll(async () => {
     await Promise.all([
-      app.getMicroservices().map((ms) => ms.close()),
+      ...app.getMicroservices().map((ms) => ms.close()),
       app.close(),
     ]);
   });
@@ -51,38 +62,33 @@ describe('ApiGatewayController (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/products')
-      .send(productDto);
-
-    expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({
-      name: productDto.name,
-      price: productDto.price,
-      stock: productDto.stock,
-    });
+      .send(productDto)
+      .expect(201);
+    expect(response.body).toMatchObject(productDto);
+    expect(response.body).toHaveProperty('id');
   });
 
   it('E2E - should create a user and retrieve it', async () => {
     const userDto = {
-      name: 'Alice Test',
-      email: 'alice@example.com',
-      phone: '9876543210',
+      name: 'AliceTest',
+      email: 'alice123@example.com',
+      phone: '9878543210',
       password: 'Alice@123',
     };
 
     const createRes = await request(app.getHttpServer())
       .post('/users')
-      .send(userDto);
-
-    expect(createRes.status).toBe(201);
+      .send(userDto)
+      .expect(201);
     expect(createRes.body).toHaveProperty('id');
     expect(createRes.body.email).toBe(userDto.email);
 
     const createdUserId = createRes.body.id;
 
     const getRes = await request(app.getHttpServer())
-      .get(`/users/${createdUserId}`);
+      .get(`/users/${createdUserId}`)
+      .expect(200);
 
-    expect(getRes.status).toBe(200);
     expect(getRes.body).toMatchObject({
       id: createdUserId,
       email: userDto.email,

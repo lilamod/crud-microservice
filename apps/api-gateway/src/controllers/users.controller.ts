@@ -36,8 +36,8 @@ export class UsersController {
   }
 
   @Get()
-  async getAllUsers(@Body() body: any) {
-    return this.sendMessage('get_all_users', body);
+  async getAllUsers() {
+    return this.sendMessage('get_all_users', {});
   }
 
   @Get(':id')
@@ -52,7 +52,7 @@ export class UsersController {
     if (userDto.password) {
       userDto.password = bcrypt.hashSync(userDto.password, userDto.salt);
     }
-    return this.sendMessage('update_user', { id, ...userDto });
+    return this.sendMessage('update_user', { id, userDto });
   }
 
   @Delete(':id')
@@ -60,16 +60,18 @@ export class UsersController {
     return this.sendMessage('delete_user', { id });
   }
 
-  private async sendMessage(pattern: string, data: any) {
-    try {
-      const result = await lastValueFrom(
-        this.client.send({ cmd: pattern }, data),
-      );
-      console.log('Microservice responded:', result);
-      return result;
-    } catch (err) {
-      console.error(' Microservice call failed:', err);
-      return err;
+  private async sendMessage(pattern: string, data: any, retries: number = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const result = await lastValueFrom(this.client.send({ cmd: pattern }, data));
+        return result;
+      } catch (err) {
+        if (attempt === retries - 1) {
+          throw err; 
+        }
+        const delay = Math.pow(2, attempt) * 100;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
   }
 }

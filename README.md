@@ -33,3 +33,26 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+
+# Note
+When you first time run this product first change the node version to 18.20
+
+Install node_module using npm i command
+
+Before start the product first create a migration for entity as I have used sync: false to
+auto create entity in postgres for safety purpose of data lose
+
+To create migration use below command
+
+    1.npm run migration:create --name=your_migration_name
+    2. In migration the table is create so add the query to create a entity of user, session and produt
+    After creation of migration run below command
+
+    npm run migration:run
+
+# To start project 
+
+Please check the rabbitMQ server is start or not if not start then start rabbitMQ server
+
+run the below command to start servies
+npm run start:dev 
